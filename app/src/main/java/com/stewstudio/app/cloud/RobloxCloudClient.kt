@@ -1,0 +1,167 @@
+package com.stewstudio.app.cloud
+
+import com.stewstudio.app.auth.AccountManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+
+class RobloxCloudClient(
+    private val accountManager: AccountManager
+) {
+
+    companion object {
+        private const val BASE_URL =
+            "https://apis.roblox.com"
+    }
+
+    private val httpClient =
+        OkHttpClient.Builder()
+            .build()
+
+    suspend fun request(
+        request: CloudRequest
+    ): Result<String> {
+
+        val account =
+            accountManager.activeAccount.value
+                ?: return Result.failure(
+                    IllegalStateException(
+                        "Not authenticated"
+                    )
+                )
+
+        if (account.id == 2L) {
+            return Result.failure(
+                IllegalStateException(
+                    "Open Cloud is unavailable offline"
+                )
+            )
+        }
+
+        val token =
+            accountManager.getAccessToken(
+                account.id
+            ) ?: return Result.failure(
+                IllegalStateException(
+                    "Not authenticated"
+                )
+            )
+
+        return withContext(Dispatchers.IO) {
+
+            try {
+
+                val url =
+                    if (request.path.startsWith("http")) {
+                        request.path
+                    } else {
+                        BASE_URL +
+                                if (
+                                    request.path.startsWith("/")
+                                ) {
+                                    request.path
+                                } else {
+                                    "/${request.path}"
+                                }
+                    }
+
+                val builder =
+                    Request.Builder()
+                        .url(url)
+                        .header(
+                            "Authorization",
+                            "Bearer $token"
+                        )
+                        .header(
+                            "Accept",
+                            "application/json"
+                        )
+
+                when (
+                    request.method.uppercase()
+                ) {
+
+                    "GET" -> {
+                        builder.get()
+                    }
+
+                    "POST" -> {
+                        builder.post(
+                            createBody(
+                                request.body
+                            )
+                        )
+                    }
+
+                    "PUT" -> {
+                        builder.put(
+                            createBody(
+                                request.body
+                            )
+                        )
+                    }
+
+                    "PATCH" -> {
+                        builder.patch(
+                            createBody(
+                                request.body
+                            )
+                        )
+                    }
+
+                    "DELETE" -> {
+                        builder.delete()
+                    }
+
+                    else -> {
+                        return@withContext Result.failure(
+                            IllegalArgumentException(
+                                "Unsupported HTTP method: ${request.method}"
+                            )
+                        )
+                    }
+                }
+
+                httpClient
+                    .newCall(builder.build())
+                    .execute()
+                    .use { response ->
+
+                        val body =
+                            response.body?.string()
+                                ?: ""
+
+                        if (response.isSuccessful) {
+                            Result.success(body)
+                        } else {
+                            Result.failure(
+                                RobloxCloudException(
+                                    statusCode =
+                                        response.code,
+                                    body = body
+                                )
+                            )
+                        }
+                    }
+
+            } catch (exception: Exception) {
+
+                Result.failure(
+                    exception
+                )
+            }
+        }
+    }
+
+    private fun createBody(
+        body: String?
+    ) =
+        (
+                body ?: ""
+                ).toRequestBody(
+                "application/json".toMediaType()
+            )
+}
