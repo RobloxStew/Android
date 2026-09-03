@@ -1,0 +1,5 @@
+- name: Initialize CodeQL
+  uses: github/codeql-action/init@v4
+  with:
+    languages: java-kotlin
+    build-mode: manual
