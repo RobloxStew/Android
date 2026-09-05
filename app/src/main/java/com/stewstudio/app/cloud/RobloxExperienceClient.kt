@@ -13,10 +13,7 @@ class RobloxExperienceClient(
 
     companion object {
         private const val BASE_URL =
-            "https://apis.roblox.com"
-
-        private const val THUMBNAIL_URL =
-            "https://thumbnails.roblox.com/v1/games/icons"
+            "https://api.stewstudio.app"
     }
 
     private val httpClient =
@@ -27,9 +24,7 @@ class RobloxExperienceClient(
         val account =
             accountManager.activeAccount.value
                 ?: return Result.failure(
-                    IllegalStateException(
-                        "Not authenticated"
-                    )
+                    IllegalStateException("Not authenticated")
                 )
 
         if (account.id == 2L) {
@@ -37,22 +32,16 @@ class RobloxExperienceClient(
         }
 
         val token =
-            accountManager.getAccessToken(
-                account.id
-            ) ?: return Result.failure(
-                IllegalStateException(
-                    "Not authenticated"
+            accountManager.getAccessToken(account.id)
+                ?: return Result.failure(
+                    IllegalStateException("Not authenticated")
                 )
-            )
 
         return withContext(Dispatchers.IO) {
             try {
-
                 val request =
                     Request.Builder()
-                        .url(
-                            "$BASE_URL/legacy-develop/v1/user/universes"
-                        )
+                        .url("$BASE_URL/experiences/")
                         .header(
                             "Authorization",
                             "Bearer $token"
@@ -86,28 +75,21 @@ class RobloxExperienceClient(
                             JSONObject(body)
 
                         val data =
-                            json.optJSONArray("data")
-
-                        if (data == null) {
-                            return@withContext Result.success(
-                                emptyList()
-                            )
-                        }
+                            json.optJSONArray("experiences")
+                                ?: return@withContext Result.success(
+                                    emptyList()
+                                )
 
                         val experiences =
                             mutableListOf<RobloxExperience>()
 
                         for (index in 0 until data.length()) {
-
                             val item =
                                 data.optJSONObject(index)
                                     ?: continue
 
                             val id =
-                                item.optLong(
-                                    "id",
-                                    0L
-                                )
+                                item.optLong("id", 0L)
 
                             if (id == 0L) {
                                 continue
@@ -124,9 +106,7 @@ class RobloxExperienceClient(
                                     item.has("description") &&
                                     !item.isNull("description")
                                 ) {
-                                    item.optString(
-                                        "description"
-                                    )
+                                    item.optString("description")
                                 } else {
                                     null
                                 }
@@ -136,9 +116,7 @@ class RobloxExperienceClient(
                                     item.has("rootPlaceId") &&
                                     !item.isNull("rootPlaceId")
                                 ) {
-                                    item.optLong(
-                                        "rootPlaceId"
-                                    )
+                                    item.optLong("rootPlaceId")
                                 } else {
                                     null
                                 }
@@ -148,9 +126,17 @@ class RobloxExperienceClient(
                                     item.has("updated") &&
                                     !item.isNull("updated")
                                 ) {
-                                    item.optString(
-                                        "updated"
-                                    )
+                                    item.optString("updated")
+                                } else {
+                                    null
+                                }
+
+                            val thumbnailUrl =
+                                if (
+                                    item.has("thumbnailUrl") &&
+                                    !item.isNull("thumbnailUrl")
+                                ) {
+                                    item.optString("thumbnailUrl")
                                 } else {
                                     null
                                 }
@@ -159,95 +145,19 @@ class RobloxExperienceClient(
                                 RobloxExperience(
                                     id = id,
                                     name = name,
-                                    description =
-                                        description,
-                                    rootPlaceId =
-                                        rootPlaceId,
-                                    updated = updated
+                                    description = description,
+                                    rootPlaceId = rootPlaceId,
+                                    updated = updated,
+                                    thumbnailUrl = thumbnailUrl
                                 )
                             )
                         }
 
-                        val withThumbnails =
-                            experiences.map { experience ->
-                                experience.copy(
-                                    thumbnailUrl =
-                                        getThumbnailUrl(
-                                            experience.id
-                                        )
-                                )
-                            }
-
-                        Result.success(
-                            withThumbnails
-                        )
+                        Result.success(experiences)
                     }
-
             } catch (exception: Exception) {
-
                 Result.failure(exception)
             }
-        }
-    }
-
-    private fun getThumbnailUrl(
-        universeId: Long
-    ): String? {
-
-        return try {
-
-            val url =
-                "$THUMBNAIL_URL" +
-                        "?universeIds=$universeId" +
-                        "&returnPolicy=PlaceHolder" +
-                        "&size=512x512" +
-                        "&format=Png" +
-                        "&isCircular=false"
-
-            val request =
-                Request.Builder()
-                    .url(url)
-                    .header(
-                        "Accept",
-                        "application/json"
-                    )
-                    .get()
-                    .build()
-
-            httpClient
-                .newCall(request)
-                .execute()
-                .use { response ->
-
-                    if (!response.isSuccessful) {
-                        return null
-                    }
-
-                    val body =
-                        response.body?.string()
-                            ?: return null
-
-                    val json =
-                        JSONObject(body)
-
-                    val data =
-                        json.optJSONArray("data")
-                            ?: return null
-
-                    if (data.length() == 0) {
-                        return null
-                    }
-
-                    data
-                        .optJSONObject(0)
-                        ?.optString(
-                            "imageUrl",
-                            null
-                        )
-                }
-
-        } catch (_: Exception) {
-            null
         }
     }
 }

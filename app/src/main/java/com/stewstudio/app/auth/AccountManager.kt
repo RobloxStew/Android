@@ -57,6 +57,20 @@ class AccountManager(
         setActiveAccount(user.id)
     }
 
+    suspend fun saveTokens(
+        accountId: Long,
+        accessToken: String,
+        refreshToken: String?,
+        expiresAt: Long
+    ) {
+        tokenStore.saveTokens(
+            accountId = accountId.toString(),
+            accessToken = accessToken,
+            refreshToken = refreshToken,
+            expiresAt = expiresAt
+        )
+    }
+
     suspend fun setActiveAccount(
         accountId: Long
     ) {

@@ -11,7 +11,7 @@ object OAuthConfig {
         "https://apis.roblox.com/oauth/v1/authorize"
 
     const val TOKEN_URL =
-        "https://apis.roblox.com/oauth/v1/token"
+        "https://api.stewstudio.app/oauth/token"
 
     const val USERINFO_URL =
         "https://apis.roblox.com/oauth/v1/userinfo"

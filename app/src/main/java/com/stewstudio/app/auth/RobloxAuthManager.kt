@@ -12,11 +12,13 @@ import kotlinx.coroutines.withContext
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.MediaType.Companion.toMediaType
 import org.json.JSONObject
 import java.security.MessageDigest
 import java.security.SecureRandom
 import android.util.Base64
 import kotlinx.coroutines.cancel
+import okhttp3.RequestBody.Companion.toRequestBody
 
 class RobloxAuthManager(
     private val accountManager: AccountManager,
@@ -269,6 +271,13 @@ class RobloxAuthManager(
                     user
                 )
 
+                accountManager.saveTokens(
+                    accountId = user.id,
+                    accessToken = tokens.accessToken,
+                    refreshToken = tokens.refreshToken,
+                    expiresAt = tokens.expiresAt
+                )
+
                 sessionStore.clear()
 
                 _state.value =
@@ -295,25 +304,15 @@ class RobloxAuthManager(
 
             try {
 
+                val jsonBody =
+                    JSONObject().apply {
+                        put("code", code)
+                        put("codeVerifier", codeVerifier)
+                    }
+
                 val body =
-                    FormBody.Builder()
-                        .add(
-                            "client_id",
-                            OAuthConfig.CLIENT_ID
-                        )
-                        .add(
-                            "grant_type",
-                            "authorization_code"
-                        )
-                        .add(
-                            "code",
-                            code
-                        )
-                        .add(
-                            "code_verifier",
-                            codeVerifier
-                        )
-                        .build()
+                    jsonBody.toString()
+                        .toRequestBody("application/json".toMediaType())
 
                 val request =
                     Request.Builder()
@@ -323,6 +322,10 @@ class RobloxAuthManager(
                         .post(body)
                         .header(
                             "Accept",
+                            "application/json"
+                        )
+                        .header(
+                            "Content-Type",
                             "application/json"
                         )
                         .build()
@@ -358,7 +361,8 @@ class RobloxAuthManager(
                             if (
                                 json.has(
                                     "refresh_token"
-                                )
+                                ) &&
+                                !json.isNull("refresh_token")
                             ) {
                                 json.getString(
                                     "refresh_token"
@@ -457,12 +461,19 @@ class RobloxAuthManager(
                                 name
                             )
 
+                        val pictureUrl =
+                            json.optString(
+                                "picture",
+                                null
+                            )
+
                         Result.success(
                             RobloxUser(
                                 id = id,
                                 name = name,
                                 displayName =
-                                    displayName
+                                    displayName,
+                                pictureUrl = pictureUrl
                             )
                         )
                     }

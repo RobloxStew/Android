@@ -20,14 +20,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -37,6 +40,10 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,6 +56,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -57,21 +65,44 @@ import com.stewstudio.app.auth.RobloxUser
 import com.stewstudio.app.cloud.RobloxExperience
 import com.stewstudio.app.cloud.RobloxExperienceClient
 
+private enum class StudioPage {
+    Home,
+    Experiences,
+    Settings
+}
+
+private enum class ExperienceTab {
+    Experiences,
+    GroupExperiences,
+    SharedWithMe,
+    Local
+}
+
+private enum class SettingsCategory {
+    Studio,
+    Appearance,
+    Editor,
+    Account,
+    Privacy,
+    Network,
+    About
+}
+
 @Composable
 fun HomeScreen(
     user: RobloxUser,
     experienceClient: RobloxExperienceClient,
     onLogout: () -> Unit
 ) {
+    var currentPage by remember {
+        mutableStateOf(StudioPage.Home)
+    }
+
     var activeMenu by remember {
         mutableStateOf<String?>(null)
     }
 
     var showProfileMenu by remember {
-        mutableStateOf(false)
-    }
-
-    var showSettings by remember {
         mutableStateOf(false)
     }
 
@@ -98,8 +129,7 @@ fun HomeScreen(
             }
             .onFailure {
                 experienceError =
-                    it.message
-                        ?: "Failed to load experiences."
+                    it.message ?: "Failed to load experiences."
             }
 
         loadingExperiences = false
@@ -116,11 +146,16 @@ fun HomeScreen(
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
-
             StudioTopBar(
                 user = user,
+                currentPage = currentPage,
                 activeMenu = activeMenu,
                 showProfileMenu = showProfileMenu,
+                onNavigate = {
+                    currentPage = it
+                    activeMenu = null
+                    showProfileMenu = false
+                },
                 onMenuClick = { menu ->
                     showProfileMenu = false
 
@@ -133,218 +168,750 @@ fun HomeScreen(
                 },
                 onProfileClick = {
                     activeMenu = null
-                    showProfileMenu =
-                        !showProfileMenu
-                },
-                onSettings = {
-                    activeMenu = null
-                    showProfileMenu = false
-                    showSettings = true
+                    showProfileMenu = !showProfileMenu
                 },
                 onLogout = onLogout
             )
 
-            if (activeMenu != null) {
+            Row(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                StudioNavigationRail(
+                    currentPage = currentPage,
+                    onNavigate = {
+                        currentPage = it
+                        activeMenu = null
+                        showProfileMenu = false
+                    }
+                )
+
+                when (currentPage) {
+                    StudioPage.Home -> {
+                        StudioHomePage(
+                            user = user,
+                            experiences = experiences,
+                            loadingExperiences = loadingExperiences,
+                            experienceError = experienceError,
+                            onNewExperience = {
+                                // New experience flow later.
+                            },
+                            onOpenExisting = {
+                                // Open existing flow later.
+                            },
+                            onExperienceClick = {
+                                // Open experience later.
+                            },
+                            onSeeAll = {
+                                currentPage =
+                                    StudioPage.Experiences
+                            }
+                        )
+                    }
+
+                    StudioPage.Experiences -> {
+                        ExperiencesPage(
+                            experiences = experiences,
+                            loadingExperiences =
+                                loadingExperiences,
+                            experienceError =
+                                experienceError,
+                            onNewExperience = {
+                                // New experience flow later.
+                            },
+                            onExperienceClick = {
+                                // Open experience later.
+                            }
+                        )
+                    }
+
+                    StudioPage.Settings -> {
+                        SettingsPage()
+                    }
+                }
+            }
+        }
+
+        /*
+         * Studio menus.
+         *
+         * This is a sibling of the main Column instead of
+         * being inside it, so it overlays the UI.
+         */
+        if (activeMenu != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 56.dp)
+            ) {
                 StudioDropdownMenu(
                     menu = activeMenu!!,
                     onDismiss = {
                         activeMenu = null
                     },
-                    onSettings = {
+                    onNavigate = {
+                        currentPage = it
                         activeMenu = null
-                        showSettings = true
                     }
                 )
             }
-
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(
-                        horizontal = 32.dp,
-                        vertical = 28.dp
-                    )
-            ) {
-
-                Text(
-                    text = "Home",
-                    style =
-                        MaterialTheme.typography.headlineLarge,
-                    fontWeight =
-                        FontWeight.SemiBold
-                )
-
-                Spacer(
-                    modifier = Modifier.height(28.dp)
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment =
-                        Alignment.CenterVertically
-                ) {
-
-                    Text(
-                        text = "My Experiences",
-                        style =
-                            MaterialTheme.typography.titleLarge,
-                        fontWeight =
-                            FontWeight.SemiBold,
-                        modifier =
-                            Modifier.weight(1f)
-                    )
-
-                    Text(
-                        text = "See All",
-                        style =
-                            MaterialTheme.typography.labelLarge,
-                        color =
-                            MaterialTheme.colorScheme.primary,
-                        modifier =
-                            Modifier.clickable {
-                                // Experience browser later.
-                            }
-                    )
-                }
-
-                Spacer(
-                    modifier = Modifier.height(16.dp)
-                )
-
-                when {
-
-                    loadingExperiences -> {
-
-                        Text(
-                            text =
-                                "Loading your experiences...",
-                            color =
-                                MaterialTheme.colorScheme
-                                    .onSurfaceVariant
-                        )
-                    }
-
-                    experienceError != null -> {
-
-                        Text(
-                            text =
-                                experienceError!!,
-                            color =
-                                MaterialTheme.colorScheme.error
-                        )
-                    }
-
-                    experiences.isEmpty() -> {
-
-                        EmptyExperiences()
-                    }
-
-                    else -> {
-
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(
-                                    rememberScrollState()
-                                ),
-                            horizontalArrangement =
-                                Arrangement.spacedBy(16.dp)
-                        ) {
-
-                            experiences.forEach { experience ->
-
-                                ExperienceCard(
-                                    experience = experience,
-                                    onClick = {
-                                        // Open experience later.
-                                    }
-                                )
-                            }
-
-                            NewExperienceCard(
-                                onClick = {
-                                    // New experience later.
-                                }
-                            )
-                        }
-                    }
-                }
-
-                Spacer(
-                    modifier = Modifier.height(36.dp)
-                )
-
-                Row(
-                    horizontalArrangement =
-                        Arrangement.spacedBy(12.dp)
-                ) {
-
-                    Button(
-                        onClick = {
-                            // New experience flow later.
-                        }
-                    ) {
-
-                        Icon(
-                            imageVector =
-                                Icons.Default.Add,
-                            contentDescription = null
-                        )
-
-                        Spacer(
-                            modifier =
-                                Modifier.width(8.dp)
-                        )
-
-                        Text("New Experience")
-                    }
-
-                    Button(
-                        onClick = {
-                            // Open experience flow later.
-                        }
-                    ) {
-
-                        Icon(
-                            imageVector =
-                                Icons.Default.FolderOpen,
-                            contentDescription = null
-                        )
-
-                        Spacer(
-                            modifier =
-                                Modifier.width(8.dp)
-                        )
-
-                        Text("Open Existing")
-                    }
-                }
-            }
-        }
-
-        if (showSettings) {
-            SettingsPanel(
-                onClose = {
-                    showSettings = false
-                }
-            )
         }
     }
 }
 
 @Composable
-private fun EmptyExperiences() {
+private fun StudioTopBar(
+    user: RobloxUser,
+    currentPage: StudioPage,
+    activeMenu: String?,
+    showProfileMenu: Boolean,
+    onNavigate: (StudioPage) -> Unit,
+    onMenuClick: (String) -> Unit,
+    onProfileClick: () -> Unit,
+    onLogout: () -> Unit
+) {
+    Box(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 2.dp
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Stew Studio",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(
+                    modifier = Modifier.width(20.dp)
+                )
+
+                TopMenuButton(
+                    text = "File",
+                    selected = activeMenu == "File",
+                    onClick = {
+                        onMenuClick("File")
+                    }
+                )
+
+                TopMenuButton(
+                    text = "Plugins",
+                    selected = activeMenu == "Plugins",
+                    onClick = {
+                        onMenuClick("Plugins")
+                    }
+                )
+
+                TopMenuButton(
+                    text = "Help",
+                    selected = activeMenu == "Help",
+                    onClick = {
+                        onMenuClick("Help")
+                    }
+                )
+
+                Spacer(
+                    modifier = Modifier.weight(1f)
+                )
+
+                Box {
+                    Surface(
+                        modifier = Modifier.clickable {
+                            onProfileClick()
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(
+                                horizontal = 10.dp,
+                                vertical = 6.dp
+                            ),
+                            verticalAlignment =
+                                Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector =
+                                    Icons.Default.AccountCircle,
+                                contentDescription = null,
+                                modifier = Modifier.size(28.dp)
+                            )
+
+                            Spacer(
+                                modifier = Modifier.width(8.dp)
+                            )
+
+                            Column {
+                                Text(
+                                    text = user.displayName,
+                                    style =
+                                        MaterialTheme.typography
+                                            .labelLarge,
+                                    fontWeight =
+                                        FontWeight.SemiBold
+                                )
+
+                                Text(
+                                    text = "@${user.name}",
+                                    style =
+                                        MaterialTheme.typography
+                                            .labelSmall,
+                                    color =
+                                        MaterialTheme.colorScheme
+                                            .onSurfaceVariant
+                                )
+                            }
+
+                            Icon(
+                                imageVector =
+                                    Icons.Default.ArrowDropDown,
+                                contentDescription = null
+                            )
+                        }
+                    }
+
+                    DropdownMenu(
+                        expanded = showProfileMenu,
+                        onDismissRequest = onProfileClick
+                    ) {
+                        Text(
+                            text = user.displayName,
+                            modifier = Modifier.padding(
+                                horizontal = 16.dp,
+                                vertical = 8.dp
+                            ),
+                            style =
+                                MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+
+                        Text(
+                            text = "@${user.name}",
+                            modifier = Modifier.padding(
+                                horizontal = 16.dp
+                            ),
+                            style =
+                                MaterialTheme.typography.bodySmall,
+                            color =
+                                MaterialTheme.colorScheme
+                                    .onSurfaceVariant
+                        )
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(
+                                vertical = 8.dp
+                            )
+                        )
+
+                        DropdownMenuItem(
+                            text = {
+                                Text("Switch Account")
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector =
+                                        Icons.Default.AccountCircle,
+                                    contentDescription = null
+                                )
+                            },
+                            onClick = {
+                                // Account switcher later.
+                            }
+                        )
+
+                        DropdownMenuItem(
+                            text = {
+                                Text("Settings")
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector =
+                                        Icons.Default.Settings,
+                                    contentDescription = null
+                                )
+                            },
+                            onClick = {
+                                onProfileClick()
+                                onNavigate(StudioPage.Settings)
+                            }
+                        )
+
+                        DropdownMenuItem(
+                            text = {
+                                Text("Log Out")
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector =
+                                        Icons.Default.Logout,
+                                    contentDescription = null
+                                )
+                            },
+                            onClick = onLogout
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StudioNavigationRail(
+    currentPage: StudioPage,
+    onNavigate: (StudioPage) -> Unit
+) {
+    NavigationRail(
+        modifier = Modifier.fillMaxHeight(),
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+        NavigationRailItem(
+            selected = currentPage == StudioPage.Home,
+            onClick = {
+                onNavigate(StudioPage.Home)
+            },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Home,
+                    contentDescription = "Home"
+                )
+            },
+            label = {
+                Text("Home")
+            }
+        )
+
+        NavigationRailItem(
+            selected = currentPage == StudioPage.Experiences,
+            onClick = {
+                onNavigate(StudioPage.Experiences)
+            },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.WorkspacePremium,
+                    contentDescription = "Experiences"
+                )
+            },
+            label = {
+                Text("Experiences")
+            }
+        )
+
+        NavigationRailItem(
+            selected = currentPage == StudioPage.Settings,
+            onClick = {
+                onNavigate(StudioPage.Settings)
+            },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings"
+                )
+            },
+            label = {
+                Text("Settings")
+            }
+        )
+    }
+}
+
+@Composable
+private fun StudioHomePage(
+    user: RobloxUser,
+    experiences: List<RobloxExperience>,
+    loadingExperiences: Boolean,
+    experienceError: String?,
+    onNewExperience: () -> Unit,
+    onOpenExisting: () -> Unit,
+    onExperienceClick: (RobloxExperience) -> Unit,
+    onSeeAll: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(
+                horizontal = 32.dp,
+                vertical = 28.dp
+            )
+    ) {
+        Text(
+            text = "Home",
+            style = MaterialTheme.typography.headlineLarge,
+            fontWeight = FontWeight.SemiBold
+        )
+
+        Spacer(
+            modifier = Modifier.height(8.dp)
+        )
+
+        Text(
+            text = "Welcome back, ${user.displayName}.",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        Spacer(
+            modifier = Modifier.height(28.dp)
+        )
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Button(
+                onClick = onNewExperience
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null
+                )
+
+                Spacer(
+                    modifier = Modifier.width(8.dp)
+                )
+
+                Text("New Experience")
+            }
+
+            Button(
+                onClick = onOpenExisting
+            ) {
+                Icon(
+                    imageVector = Icons.Default.FolderOpen,
+                    contentDescription = null
+                )
+
+                Spacer(
+                    modifier = Modifier.width(8.dp)
+                )
+
+                Text("Open Existing")
+            }
+        }
+
+        Spacer(
+            modifier = Modifier.height(40.dp)
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Recent",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f)
+            )
+
+            Text(
+                text = "See All",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.clickable {
+                    onSeeAll()
+                }
+            )
+        }
+
+        Spacer(
+            modifier = Modifier.height(16.dp)
+        )
+
+        ExperienceContent(
+            experiences = experiences,
+            loadingExperiences = loadingExperiences,
+            experienceError = experienceError,
+            onExperienceClick = onExperienceClick,
+            showNewCard = true,
+            onNewExperience = onNewExperience
+        )
+    }
+}
+
+@Composable
+private fun ExperiencesPage(
+    experiences: List<RobloxExperience>,
+    loadingExperiences: Boolean,
+    experienceError: String?,
+    onNewExperience: () -> Unit,
+    onExperienceClick: (RobloxExperience) -> Unit
+) {
+    var selectedTab by remember {
+        mutableStateOf(ExperienceTab.Experiences)
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(
+                horizontal = 32.dp,
+                vertical = 28.dp
+            )
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = "Experiences",
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Spacer(
+                    modifier = Modifier.height(4.dp)
+                )
+
+                Text(
+                    text = "Open and manage your Studio projects.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
+                )
+            }
+
+            Button(
+                onClick = onNewExperience
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null
+                )
+
+                Spacer(
+                    modifier = Modifier.width(8.dp)
+                )
+
+                Text("New Experience")
+            }
+        }
+
+        Spacer(
+            modifier = Modifier.height(28.dp)
+        )
+
+        ExperienceTabs(
+            selectedTab = selectedTab,
+            onTabSelected = {
+                selectedTab = it
+            }
+        )
+
+        Spacer(
+            modifier = Modifier.height(24.dp)
+        )
+
+        when (selectedTab) {
+            ExperienceTab.Experiences -> {
+                ExperienceContent(
+                    experiences = experiences,
+                    loadingExperiences = loadingExperiences,
+                    experienceError = experienceError,
+                    onExperienceClick = onExperienceClick,
+                    showNewCard = true,
+                    onNewExperience = onNewExperience
+                )
+            }
+
+            ExperienceTab.GroupExperiences -> {
+                EmptyExperienceTab(
+                    title = "Group Experiences",
+                    description =
+                        "Experiences owned by groups you can edit will appear here."
+                )
+            }
+
+            ExperienceTab.SharedWithMe -> {
+                EmptyExperienceTab(
+                    title = "Shared with Me",
+                    description =
+                        "Experiences other users have shared with you will appear here."
+                )
+            }
+
+            ExperienceTab.Local -> {
+                EmptyExperienceTab(
+                    title = "Local",
+                    description =
+                        "Experiences saved locally on this device will appear here."
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExperienceTabs(
+    selectedTab: ExperienceTab,
+    onTabSelected: (ExperienceTab) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(
+                rememberScrollState()
+            ),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        ExperienceTabButton(
+            text = "Experiences",
+            selected = selectedTab == ExperienceTab.Experiences,
+            onClick = {
+                onTabSelected(ExperienceTab.Experiences)
+            }
+        )
+
+        ExperienceTabButton(
+            text = "Group Experiences",
+            selected =
+                selectedTab == ExperienceTab.GroupExperiences,
+            onClick = {
+                onTabSelected(ExperienceTab.GroupExperiences)
+            }
+        )
+
+        ExperienceTabButton(
+            text = "Shared with Me",
+            selected =
+                selectedTab == ExperienceTab.SharedWithMe,
+            onClick = {
+                onTabSelected(ExperienceTab.SharedWithMe)
+            }
+        )
+
+        ExperienceTabButton(
+            text = "Local",
+            selected = selectedTab == ExperienceTab.Local,
+            onClick = {
+                onTabSelected(ExperienceTab.Local)
+            }
+        )
+    }
+}
+
+@Composable
+private fun ExperienceTabButton(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.clickable(
+            onClick = onClick
+        ),
+        shape = RoundedCornerShape(8.dp),
+        color =
+            if (selected) {
+                MaterialTheme.colorScheme.secondaryContainer
+            } else {
+                Color.Transparent
+            }
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(
+                horizontal = 14.dp,
+                vertical = 9.dp
+            ),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight =
+                if (selected) {
+                    FontWeight.SemiBold
+                } else {
+                    FontWeight.Normal
+                }
+        )
+    }
+}
+
+@Composable
+private fun ExperienceContent(
+    experiences: List<RobloxExperience>,
+    loadingExperiences: Boolean,
+    experienceError: String?,
+    onExperienceClick: (RobloxExperience) -> Unit,
+    showNewCard: Boolean,
+    onNewExperience: () -> Unit
+) {
+    when {
+        loadingExperiences -> {
+            Text(
+                text = "Loading your experiences...",
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+            )
+        }
+
+        experienceError != null -> {
+            Text(
+                text = experienceError,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+
+        experiences.isEmpty() -> {
+            EmptyExperiences(
+                onNewExperience = onNewExperience
+            )
+        }
+
+        else -> {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(
+                        rememberScrollState()
+                    ),
+                horizontalArrangement =
+                    Arrangement.spacedBy(16.dp)
+            ) {
+                experiences.forEach { experience ->
+                    ExperienceCard(
+                        experience = experience,
+                        onClick = {
+                            onExperienceClick(experience)
+                        }
+                    )
+                }
+
+                if (showNewCard) {
+                    NewExperienceCard(
+                        onClick = onNewExperience
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyExperiences(
+    onNewExperience: () -> Unit
+) {
     Card(
         modifier = Modifier
-            .width(320.dp)
-            .height(170.dp),
+            .width(360.dp)
+            .height(190.dp),
         shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(
             containerColor =
                 MaterialTheme.colorScheme.surface
         )
     ) {
-
         Column(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment =
@@ -352,10 +919,8 @@ private fun EmptyExperiences() {
             verticalArrangement =
                 Arrangement.Center
         ) {
-
             Icon(
-                imageVector =
-                    Icons.Default.Description,
+                imageVector = Icons.Default.Description,
                 contentDescription = null,
                 modifier = Modifier.size(36.dp),
                 tint =
@@ -371,8 +936,7 @@ private fun EmptyExperiences() {
                 text = "No Experiences",
                 style =
                     MaterialTheme.typography.titleMedium,
-                fontWeight =
-                    FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold
             )
 
             Spacer(
@@ -388,451 +952,59 @@ private fun EmptyExperiences() {
                     MaterialTheme.colorScheme
                         .onSurfaceVariant
             )
+
+            Spacer(
+                modifier = Modifier.height(14.dp)
+            )
+
+            Button(
+                onClick = onNewExperience
+            ) {
+                Text("Create Experience")
+            }
         }
     }
 }
 
 @Composable
-private fun StudioTopBar(
-    user: RobloxUser,
-    activeMenu: String?,
-    showProfileMenu: Boolean,
-    onMenuClick: (String) -> Unit,
-    onProfileClick: () -> Unit,
-    onSettings: () -> Unit,
-    onLogout: () -> Unit
+private fun EmptyExperienceTab(
+    title: String,
+    description: String
 ) {
-    Box(
-        modifier = Modifier.fillMaxWidth()
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(180.dp),
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(
+            containerColor =
+                MaterialTheme.colorScheme.surface
+        )
     ) {
-
-        Surface(
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-            color =
-                MaterialTheme.colorScheme.surface,
-            shadowElevation = 2.dp
+                .fillMaxSize()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Center
         ) {
-
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(
-                        horizontal = 12.dp
-                    ),
-                verticalAlignment =
-                    Alignment.CenterVertically
-            ) {
-
-                Text(
-                    text = "Stew Studio",
-                    style =
-                        MaterialTheme.typography.titleMedium,
-                    fontWeight =
-                        FontWeight.Bold
-                )
-
-                Spacer(
-                    modifier = Modifier.width(20.dp)
-                )
-
-                TopMenuButton(
-                    text = "File",
-                    selected =
-                        activeMenu == "File",
-                    onClick = {
-                        onMenuClick("File")
-                    }
-                )
-
-                TopMenuButton(
-                    text = "Plugins",
-                    selected =
-                        activeMenu == "Plugins",
-                    onClick = {
-                        onMenuClick("Plugins")
-                    }
-                )
-
-                TopMenuButton(
-                    text = "Help",
-                    selected =
-                        activeMenu == "Help",
-                    onClick = {
-                        onMenuClick("Help")
-                    }
-                )
-
-                TopMenuButton(
-                    text = "Settings",
-                    selected = false,
-                    onClick = onSettings
-                )
-
-                Spacer(
-                    modifier = Modifier.weight(1f)
-                )
-
-                Box {
-
-                    Surface(
-                        modifier = Modifier.clickable {
-                            onProfileClick()
-                        },
-                        shape =
-                            RoundedCornerShape(8.dp),
-                        color =
-                            MaterialTheme.colorScheme
-                                .surfaceVariant
-                    ) {
-
-                        Row(
-                            modifier =
-                                Modifier.padding(
-                                    horizontal = 10.dp,
-                                    vertical = 6.dp
-                                ),
-                            verticalAlignment =
-                                Alignment.CenterVertically
-                        ) {
-
-                            Icon(
-                                imageVector =
-                                    Icons.Default
-                                        .AccountCircle,
-                                contentDescription = null,
-                                modifier =
-                                    Modifier.size(28.dp)
-                            )
-
-                            Spacer(
-                                modifier =
-                                    Modifier.width(8.dp)
-                            )
-
-                            Column {
-
-                                Text(
-                                    text =
-                                        user.displayName,
-                                    style =
-                                        MaterialTheme
-                                            .typography
-                                            .labelLarge,
-                                    fontWeight =
-                                        FontWeight.SemiBold
-                                )
-
-                                Text(
-                                    text =
-                                        "@${user.name}",
-                                    style =
-                                        MaterialTheme
-                                            .typography
-                                            .labelSmall,
-                                    color =
-                                        MaterialTheme
-                                            .colorScheme
-                                            .onSurfaceVariant
-                                )
-                            }
-
-                            Icon(
-                                imageVector =
-                                    Icons.Default
-                                        .ArrowDropDown,
-                                contentDescription = null
-                            )
-                        }
-                    }
-
-                    DropdownMenu(
-                        expanded =
-                            showProfileMenu,
-                        onDismissRequest = {
-                            onProfileClick()
-                        }
-                    ) {
-
-                        Text(
-                            text =
-                                user.displayName,
-                            modifier =
-                                Modifier.padding(
-                                    horizontal = 16.dp,
-                                    vertical = 8.dp
-                                ),
-                            style =
-                                MaterialTheme
-                                    .typography
-                                    .titleSmall,
-                            fontWeight =
-                                FontWeight.SemiBold
-                        )
-
-                        Text(
-                            text =
-                                "@${user.name}",
-                            modifier =
-                                Modifier.padding(
-                                    horizontal = 16.dp
-                                ),
-                            style =
-                                MaterialTheme
-                                    .typography
-                                    .bodySmall,
-                            color =
-                                MaterialTheme
-                                    .colorScheme
-                                    .onSurfaceVariant
-                        )
-
-                        HorizontalDivider(
-                            modifier =
-                                Modifier.padding(
-                                    vertical = 8.dp
-                                )
-                        )
-
-                        DropdownMenuItem(
-                            text = {
-                                Text("Switch Account")
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector =
-                                        Icons.Default
-                                            .AccountCircle,
-                                    contentDescription =
-                                        null
-                                )
-                            },
-                            onClick = {
-                                // Account switcher later.
-                            }
-                        )
-
-                        DropdownMenuItem(
-                            text = {
-                                Text("Settings")
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector =
-                                        Icons.Default
-                                            .Settings,
-                                    contentDescription =
-                                        null
-                                )
-                            },
-                            onClick = {
-                                onSettings()
-                            }
-                        )
-
-                        DropdownMenuItem(
-                            text = {
-                                Text("Log Out")
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector =
-                                        Icons.Default
-                                            .Logout,
-                                    contentDescription =
-                                        null
-                                )
-                            },
-                            onClick = onLogout
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun TopMenuButton(
-    text: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    Surface(
-        modifier = Modifier.clickable(
-            onClick = onClick
-        ),
-        color =
-            if (selected) {
-                MaterialTheme.colorScheme
-                    .surfaceVariant
-            } else {
-                Color.Transparent
-            },
-        shape =
-            RoundedCornerShape(6.dp)
-    ) {
-
-        Text(
-            text = text,
-            modifier = Modifier.padding(
-                horizontal = 12.dp,
-                vertical = 8.dp
-            ),
-            style =
-                MaterialTheme.typography.labelLarge
-        )
-    }
-}
-
-@Composable
-private fun StudioDropdownMenu(
-    menu: String,
-    onDismiss: () -> Unit,
-    onSettings: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(
-                start = when (menu) {
-                    "File" -> 120.dp
-                    "Plugins" -> 175.dp
-                    "Help" -> 255.dp
-                    else -> 120.dp
-                }
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold
             )
-    ) {
 
-        Card(
-            modifier = Modifier.width(230.dp),
-            shape =
-                RoundedCornerShape(8.dp),
-            elevation =
-                CardDefaults.cardElevation(
-                    defaultElevation = 6.dp
-                )
-        ) {
-
-            Column(
-                modifier = Modifier.padding(
-                    vertical = 6.dp
-                )
-            ) {
-
-                when (menu) {
-
-                    "File" -> {
-
-                        MenuItem(
-                            icon = Icons.Default.Add,
-                            text = "New Experience",
-                            onClick = onDismiss
-                        )
-
-                        MenuItem(
-                            icon =
-                                Icons.Default.FolderOpen,
-                            text = "Open Experience",
-                            onClick = onDismiss
-                        )
-
-                        MenuItem(
-                            icon =
-                                Icons.Default.Description,
-                            text = "Save",
-                            onClick = onDismiss
-                        )
-
-                        HorizontalDivider(
-                            modifier =
-                                Modifier.padding(
-                                    vertical = 6.dp
-                                )
-                        )
-
-                        MenuItem(
-                            icon = Icons.Default.Close,
-                            text = "Close",
-                            onClick = onDismiss
-                        )
-                    }
-
-                    "Plugins" -> {
-
-                        MenuItem(
-                            icon =
-                                Icons.Default.Extension,
-                            text = "Plugin Manager",
-                            onClick = onDismiss
-                        )
-
-                        MenuItem(
-                            icon = Icons.Default.Add,
-                            text = "Install Plugin",
-                            onClick = onDismiss
-                        )
-                    }
-
-                    "Help" -> {
-
-                        MenuItem(
-                            icon =
-                                Icons.Default.HelpOutline,
-                            text = "Documentation",
-                            onClick = onDismiss
-                        )
-
-                        MenuItem(
-                            icon =
-                                Icons.Default.HelpOutline,
-                            text = "About Stew Studio",
-                            onClick = onDismiss
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun MenuItem(
-    icon:
-    androidx.compose.ui.graphics.vector.ImageVector,
-    text: String,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(
-                onClick = onClick
+            Spacer(
+                modifier = Modifier.height(8.dp)
             )
-            .padding(
-                horizontal = 14.dp,
-                vertical = 10.dp
-            ),
-        verticalAlignment =
-            Alignment.CenterVertically
-    ) {
 
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(20.dp)
-        )
-
-        Spacer(
-            modifier = Modifier.width(12.dp)
-        )
-
-        Text(
-            text = text,
-            style =
-                MaterialTheme.typography.bodyMedium
-        )
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodyMedium,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant
+            )
+        }
     }
 }
 
@@ -847,15 +1019,12 @@ private fun ExperienceCard(
             .clickable(
                 onClick = onClick
             ),
-        shape =
-            RoundedCornerShape(10.dp),
-        colors =
-            CardDefaults.cardColors(
-                containerColor =
-                    MaterialTheme.colorScheme.surface
-            )
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(
+            containerColor =
+                MaterialTheme.colorScheme.surface
+        )
     ) {
-
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -871,31 +1040,22 @@ private fun ExperienceCard(
                         .surfaceVariant
                 )
         ) {
-
             if (
                 experience.thumbnailUrl
                     ?.isNotBlank() == true
             ) {
-
                 AsyncImage(
-                    model =
-                        experience.thumbnailUrl,
-                    contentDescription =
-                        experience.name,
-                    modifier =
-                        Modifier.fillMaxSize(),
-                    contentScale =
-                        ContentScale.Crop
+                    model = experience.thumbnailUrl,
+                    contentDescription = experience.name,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
                 )
-
             } else {
-
                 Text(
                     text = "No Thumbnail",
-                    modifier =
-                        Modifier.align(
-                            Alignment.Center
-                        ),
+                    modifier = Modifier.align(
+                        Alignment.Center
+                    ),
                     color =
                         MaterialTheme.colorScheme
                             .onSurfaceVariant,
@@ -907,24 +1067,19 @@ private fun ExperienceCard(
         }
 
         Column(
-            modifier = Modifier.padding(
-                14.dp
-            )
+            modifier = Modifier.padding(14.dp)
         ) {
-
             Text(
                 text = experience.name,
                 style =
                     MaterialTheme.typography
                         .titleMedium,
-                fontWeight =
-                    FontWeight.SemiBold,
+                fontWeight = FontWeight.SemiBold,
                 maxLines = 1
             )
 
             Spacer(
-                modifier =
-                    Modifier.height(4.dp)
+                modifier = Modifier.height(4.dp)
             )
 
             Text(
@@ -957,16 +1112,12 @@ private fun NewExperienceCard(
             .clickable(
                 onClick = onClick
             ),
-        shape =
-            RoundedCornerShape(10.dp),
-        colors =
-            CardDefaults.cardColors(
-                containerColor =
-                    MaterialTheme.colorScheme
-                        .surface
-            )
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(
+            containerColor =
+                MaterialTheme.colorScheme.surface
+        )
     ) {
-
         Column(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment =
@@ -974,18 +1125,14 @@ private fun NewExperienceCard(
             verticalArrangement =
                 Arrangement.Center
         ) {
-
             Icon(
-                imageVector =
-                    Icons.Default.Add,
+                imageVector = Icons.Default.Add,
                 contentDescription = null,
-                modifier =
-                    Modifier.size(40.dp)
+                modifier = Modifier.size(40.dp)
             )
 
             Spacer(
-                modifier =
-                    Modifier.height(10.dp)
+                modifier = Modifier.height(10.dp)
             )
 
             Text(
@@ -993,159 +1140,248 @@ private fun NewExperienceCard(
                 style =
                     MaterialTheme.typography
                         .titleMedium,
-                fontWeight =
-                    FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold
             )
         }
     }
 }
 
 @Composable
-private fun SettingsPanel(
-    onClose: () -> Unit
+private fun SettingsPage() {
+    var selectedCategory by remember {
+        mutableStateOf(SettingsCategory.Studio)
+    }
+
+    Row(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Column(
+            modifier = Modifier
+                .width(230.dp)
+                .fillMaxHeight()
+                .background(
+                    MaterialTheme.colorScheme.surface
+                )
+                .padding(12.dp)
+        ) {
+            Text(
+                text = "Settings",
+                modifier = Modifier.padding(
+                    horizontal = 12.dp,
+                    vertical = 14.dp
+                ),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            Spacer(
+                modifier = Modifier.height(8.dp)
+            )
+
+            SettingsCategory(
+                title = "Studio",
+                selected =
+                    selectedCategory ==
+                            SettingsCategory.Studio,
+                onClick = {
+                    selectedCategory =
+                        SettingsCategory.Studio
+                }
+            )
+
+            SettingsCategory(
+                title = "Appearance",
+                selected =
+                    selectedCategory ==
+                            SettingsCategory.Appearance,
+                onClick = {
+                    selectedCategory =
+                        SettingsCategory.Appearance
+                }
+            )
+
+            SettingsCategory(
+                title = "Editor",
+                selected =
+                    selectedCategory ==
+                            SettingsCategory.Editor,
+                onClick = {
+                    selectedCategory =
+                        SettingsCategory.Editor
+                }
+            )
+
+            SettingsCategory(
+                title = "Account",
+                selected =
+                    selectedCategory ==
+                            SettingsCategory.Account,
+                onClick = {
+                    selectedCategory =
+                        SettingsCategory.Account
+                }
+            )
+
+            SettingsCategory(
+                title = "Privacy",
+                selected =
+                    selectedCategory ==
+                            SettingsCategory.Privacy,
+                onClick = {
+                    selectedCategory =
+                        SettingsCategory.Privacy
+                }
+            )
+
+            SettingsCategory(
+                title = "Network",
+                selected =
+                    selectedCategory ==
+                            SettingsCategory.Network,
+                onClick = {
+                    selectedCategory =
+                        SettingsCategory.Network
+                }
+            )
+
+            SettingsCategory(
+                title = "About",
+                selected =
+                    selectedCategory ==
+                            SettingsCategory.About,
+                onClick = {
+                    selectedCategory =
+                        SettingsCategory.About
+                }
+            )
+        }
+
+        SettingsContent(
+            category = selectedCategory
+        )
+    }
+}
+
+@Composable
+private fun SettingsContent(
+    category: SettingsCategory
 ) {
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                MaterialTheme.colorScheme
-                    .background
-            )
+            .padding(36.dp)
     ) {
+        Text(
+            text = when (category) {
+                SettingsCategory.Studio -> "Studio"
+                SettingsCategory.Appearance -> "Appearance"
+                SettingsCategory.Editor -> "Editor"
+                SettingsCategory.Account -> "Account"
+                SettingsCategory.Privacy -> "Privacy"
+                SettingsCategory.Network -> "Network"
+                SettingsCategory.About -> "About"
+            },
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.SemiBold
+        )
 
+        Spacer(
+            modifier = Modifier.height(24.dp)
+        )
+
+        when (category) {
+            SettingsCategory.Studio -> {
+                SettingsSection(
+                    title = "Studio Settings",
+                    description =
+                        "Configure how Stew Studio behaves."
+                )
+            }
+
+            SettingsCategory.Appearance -> {
+                SettingsSection(
+                    title = "Appearance",
+                    description =
+                        "Customize the appearance of Stew Studio."
+                )
+            }
+
+            SettingsCategory.Editor -> {
+                SettingsSection(
+                    title = "Editor",
+                    description =
+                        "Configure viewport, grid, snapping, and editing behavior."
+                )
+            }
+
+            SettingsCategory.Account -> {
+                SettingsSection(
+                    title = "Account",
+                    description =
+                        "Manage the Roblox account connected to Stew."
+                )
+            }
+
+            SettingsCategory.Privacy -> {
+                SettingsSection(
+                    title = "Privacy",
+                    description =
+                        "Manage privacy and data settings."
+                )
+            }
+
+            SettingsCategory.Network -> {
+                SettingsSection(
+                    title = "Network",
+                    description =
+                        "Configure network and cloud behavior."
+                )
+            }
+
+            SettingsCategory.About -> {
+                SettingsSection(
+                    title = "About Stew Studio",
+                    description =
+                        "Version and application information."
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SettingsSection(
+    title: String,
+    description: String
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(
+            containerColor =
+                MaterialTheme.colorScheme.surface
+        )
+    ) {
         Column(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.padding(20.dp)
         ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
 
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
+            Spacer(
+                modifier = Modifier.height(8.dp)
+            )
+
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodyMedium,
                 color =
                     MaterialTheme.colorScheme
-                        .surface,
-                shadowElevation = 2.dp
-            ) {
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(
-                            horizontal = 16.dp
-                        ),
-                    verticalAlignment =
-                        Alignment.CenterVertically
-                ) {
-
-                    IconButton(
-                        onClick = onClose
-                    ) {
-                        Icon(
-                            imageVector =
-                                Icons.Default.Close,
-                            contentDescription =
-                                "Close"
-                        )
-                    }
-
-                    Spacer(
-                        modifier =
-                            Modifier.width(8.dp)
-                    )
-
-                    Text(
-                        text = "Settings",
-                        style =
-                            MaterialTheme.typography
-                                .titleLarge,
-                        fontWeight =
-                            FontWeight.SemiBold
-                    )
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxSize()
-            ) {
-
-                Column(
-                    modifier = Modifier
-                        .width(220.dp)
-                        .fillMaxHeight()
-                        .background(
-                            MaterialTheme.colorScheme
-                                .surface
-                        )
-                        .padding(12.dp)
-                ) {
-
-                    SettingsCategory(
-                        title = "Studio",
-                        selected = true
-                    )
-
-                    SettingsCategory(
-                        title = "Appearance"
-                    )
-
-                    SettingsCategory(
-                        title = "Account"
-                    )
-
-                    SettingsCategory(
-                        title = "Privacy"
-                    )
-
-                    SettingsCategory(
-                        title = "Network"
-                    )
-
-                    SettingsCategory(
-                        title = "About"
-                    )
-                }
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(32.dp)
-                ) {
-
-                    Text(
-                        text = "Studio",
-                        style =
-                            MaterialTheme.typography
-                                .headlineSmall,
-                        fontWeight =
-                            FontWeight.SemiBold
-                    )
-
-                    Spacer(
-                        modifier =
-                            Modifier.height(24.dp)
-                    )
-
-                    Text(
-                        text = "Studio Settings",
-                        style =
-                            MaterialTheme.typography
-                                .titleMedium
-                    )
-
-                    Spacer(
-                        modifier =
-                            Modifier.height(8.dp)
-                    )
-
-                    Text(
-                        text =
-                            "Configure how Stew Studio behaves.",
-                        color =
-                            MaterialTheme.colorScheme
-                                .onSurfaceVariant
-                    )
-                }
-            }
+                        .onSurfaceVariant
+            )
         }
     }
 }
@@ -1153,16 +1389,17 @@ private fun SettingsPanel(
 @Composable
 private fun SettingsCategory(
     title: String,
-    selected: Boolean = false
+    selected: Boolean,
+    onClick: () -> Unit
 ) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(
-                vertical = 2.dp
+            .padding(vertical = 2.dp)
+            .clickable(
+                onClick = onClick
             ),
-        shape =
-            RoundedCornerShape(7.dp),
+        shape = RoundedCornerShape(7.dp),
         color =
             if (selected) {
                 MaterialTheme.colorScheme
@@ -1171,22 +1408,188 @@ private fun SettingsCategory(
                 Color.Transparent
             }
     ) {
-
         Text(
             text = title,
             modifier = Modifier.padding(
                 horizontal = 12.dp,
                 vertical = 10.dp
             ),
-            style =
-                MaterialTheme.typography
-                    .bodyMedium,
+            style = MaterialTheme.typography.bodyMedium,
             fontWeight =
                 if (selected) {
                     FontWeight.SemiBold
                 } else {
                     FontWeight.Normal
                 }
+        )
+    }
+}
+
+@Composable
+private fun TopMenuButton(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.clickable(
+            onClick = onClick
+        ),
+        color =
+            if (selected) {
+                MaterialTheme.colorScheme.surfaceVariant
+            } else {
+                Color.Transparent
+            },
+        shape = RoundedCornerShape(6.dp)
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(
+                horizontal = 12.dp,
+                vertical = 8.dp
+            ),
+            style = MaterialTheme.typography.labelLarge
+        )
+    }
+}
+
+@Composable
+private fun StudioDropdownMenu(
+    menu: String,
+    onDismiss: () -> Unit,
+    onNavigate: (StudioPage) -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                start = when (menu) {
+                    "File" -> 120.dp
+                    "Plugins" -> 175.dp
+                    "Help" -> 245.dp
+                    else -> 120.dp
+                }
+            )
+    ) {
+        Card(
+            modifier = Modifier.width(230.dp),
+            shape = RoundedCornerShape(8.dp),
+            elevation =
+                CardDefaults.cardElevation(
+                    defaultElevation = 6.dp
+                )
+        ) {
+            Column(
+                modifier = Modifier.padding(
+                    vertical = 6.dp
+                )
+            ) {
+                when (menu) {
+                    "File" -> {
+                        MenuItem(
+                            icon = Icons.Default.Add,
+                            text = "New Experience",
+                            onClick = onDismiss
+                        )
+
+                        MenuItem(
+                            icon = Icons.Default.FolderOpen,
+                            text = "Open Experience",
+                            onClick = onDismiss
+                        )
+
+                        MenuItem(
+                            icon = Icons.Default.Description,
+                            text = "Save",
+                            onClick = onDismiss
+                        )
+
+                        HorizontalDivider(
+                            modifier = Modifier.padding(
+                                vertical = 6.dp
+                            )
+                        )
+
+                        MenuItem(
+                            icon = Icons.Default.Close,
+                            text = "Close",
+                            onClick = onDismiss
+                        )
+                    }
+
+                    "Plugins" -> {
+                        MenuItem(
+                            icon = Icons.Default.Extension,
+                            text = "Plugin Manager",
+                            onClick = onDismiss
+                        )
+
+                        MenuItem(
+                            icon = Icons.Default.Add,
+                            text = "Install Plugin",
+                            onClick = onDismiss
+                        )
+                    }
+
+                    "Help" -> {
+                        MenuItem(
+                            icon = Icons.Default.HelpOutline,
+                            text = "Documentation",
+                            onClick = onDismiss
+                        )
+
+                        MenuItem(
+                            icon = Icons.Default.Settings,
+                            text = "Settings",
+                            onClick = {
+                                onNavigate(StudioPage.Settings)
+                            }
+                        )
+
+                        MenuItem(
+                            icon = Icons.Default.HelpOutline,
+                            text = "About Stew Studio",
+                            onClick = onDismiss
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MenuItem(
+    icon: ImageVector,
+    text: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
+                onClick = onClick
+            )
+            .padding(
+                horizontal = 14.dp,
+                vertical = 10.dp
+            ),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp)
+        )
+
+        Spacer(
+            modifier = Modifier.width(12.dp)
+        )
+
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium
         )
     }
 }
