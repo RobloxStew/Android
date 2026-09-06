@@ -18,19 +18,21 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.WorkspacePremium
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -38,12 +40,10 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -59,6 +59,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.stewstudio.app.auth.RobloxUser
@@ -91,8 +92,11 @@ private enum class SettingsCategory {
 @Composable
 fun HomeScreen(
     user: RobloxUser,
+    accounts: List<RobloxUser>,
     experienceClient: RobloxExperienceClient,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onAddAccount: () -> Unit,
+    onSwitchAccount: (Long) -> Unit
 ) {
     var currentPage by remember {
         mutableStateOf(StudioPage.Home)
@@ -103,6 +107,10 @@ fun HomeScreen(
     }
 
     var showProfileMenu by remember {
+        mutableStateOf(false)
+    }
+
+    var showAccountSwitcher by remember {
         mutableStateOf(false)
     }
 
@@ -170,6 +178,10 @@ fun HomeScreen(
                     activeMenu = null
                     showProfileMenu = !showProfileMenu
                 },
+                onSwitchAccount = {
+                    showProfileMenu = false
+                    showAccountSwitcher = true
+                },
                 onLogout = onLogout
             )
 
@@ -185,58 +197,45 @@ fun HomeScreen(
                     }
                 )
 
-                when (currentPage) {
-                    StudioPage.Home -> {
-                        StudioHomePage(
-                            user = user,
-                            experiences = experiences,
-                            loadingExperiences = loadingExperiences,
-                            experienceError = experienceError,
-                            onNewExperience = {
-                                // New experience flow later.
-                            },
-                            onOpenExisting = {
-                                // Open existing flow later.
-                            },
-                            onExperienceClick = {
-                                // Open experience later.
-                            },
-                            onSeeAll = {
-                                currentPage =
-                                    StudioPage.Experiences
-                            }
-                        )
-                    }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                ) {
+                    when (currentPage) {
+                        StudioPage.Home -> {
+                            StudioHomePage(
+                                user = user,
+                                experiences = experiences,
+                                loadingExperiences = loadingExperiences,
+                                experienceError = experienceError,
+                                onNewExperience = {},
+                                onOpenExisting = {},
+                                onExperienceClick = {},
+                                onSeeAll = {
+                                    currentPage = StudioPage.Experiences
+                                }
+                            )
+                        }
 
-                    StudioPage.Experiences -> {
-                        ExperiencesPage(
-                            experiences = experiences,
-                            loadingExperiences =
-                                loadingExperiences,
-                            experienceError =
-                                experienceError,
-                            onNewExperience = {
-                                // New experience flow later.
-                            },
-                            onExperienceClick = {
-                                // Open experience later.
-                            }
-                        )
-                    }
+                        StudioPage.Experiences -> {
+                            ExperiencesPage(
+                                experiences = experiences,
+                                loadingExperiences = loadingExperiences,
+                                experienceError = experienceError,
+                                onNewExperience = {},
+                                onExperienceClick = {}
+                            )
+                        }
 
-                    StudioPage.Settings -> {
-                        SettingsPage()
+                        StudioPage.Settings -> {
+                            SettingsPage()
+                        }
                     }
                 }
             }
         }
 
-        /*
-         * Studio menus.
-         *
-         * This is a sibling of the main Column instead of
-         * being inside it, so it overlays the UI.
-         */
         if (activeMenu != null) {
             Box(
                 modifier = Modifier
@@ -256,6 +255,24 @@ fun HomeScreen(
             }
         }
     }
+
+    if (showAccountSwitcher) {
+        AccountSwitcherDialog(
+            accounts = accounts,
+            activeAccountId = user.id,
+            onDismiss = {
+                showAccountSwitcher = false
+            },
+            onAccountSelected = { accountId ->
+                showAccountSwitcher = false
+                onSwitchAccount(accountId)
+            },
+            onAddAccount = {
+                showAccountSwitcher = false
+                onAddAccount()
+            }
+        )
+    }
 }
 
 @Composable
@@ -267,6 +284,7 @@ private fun StudioTopBar(
     onNavigate: (StudioPage) -> Unit,
     onMenuClick: (String) -> Unit,
     onProfileClick: () -> Unit,
+    onSwitchAccount: () -> Unit,
     onLogout: () -> Unit
 ) {
     Box(
@@ -339,11 +357,9 @@ private fun StudioTopBar(
                             verticalAlignment =
                                 Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector =
-                                    Icons.Default.AccountCircle,
-                                contentDescription = null,
-                                modifier = Modifier.size(28.dp)
+                            ProfilePicture(
+                                user = user,
+                                size = 28.dp
                             )
 
                             Spacer(
@@ -383,28 +399,45 @@ private fun StudioTopBar(
                         expanded = showProfileMenu,
                         onDismissRequest = onProfileClick
                     ) {
-                        Text(
-                            text = user.displayName,
-                            modifier = Modifier.padding(
-                                horizontal = 16.dp,
-                                vertical = 8.dp
-                            ),
-                            style =
-                                MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                        Row(
+                            modifier = Modifier
+                                .padding(
+                                    horizontal = 16.dp,
+                                    vertical = 10.dp
+                                ),
+                            verticalAlignment =
+                                Alignment.CenterVertically
+                        ) {
+                            ProfilePicture(
+                                user = user,
+                                size = 42.dp
+                            )
 
-                        Text(
-                            text = "@${user.name}",
-                            modifier = Modifier.padding(
-                                horizontal = 16.dp
-                            ),
-                            style =
-                                MaterialTheme.typography.bodySmall,
-                            color =
-                                MaterialTheme.colorScheme
-                                    .onSurfaceVariant
-                        )
+                            Spacer(
+                                modifier = Modifier.width(10.dp)
+                            )
+
+                            Column {
+                                Text(
+                                    text = user.displayName,
+                                    style =
+                                        MaterialTheme.typography
+                                            .titleSmall,
+                                    fontWeight =
+                                        FontWeight.SemiBold
+                                )
+
+                                Text(
+                                    text = "@${user.name}",
+                                    style =
+                                        MaterialTheme.typography
+                                            .bodySmall,
+                                    color =
+                                        MaterialTheme.colorScheme
+                                            .onSurfaceVariant
+                                )
+                            }
+                        }
 
                         HorizontalDivider(
                             modifier = Modifier.padding(
@@ -423,9 +456,7 @@ private fun StudioTopBar(
                                     contentDescription = null
                                 )
                             },
-                            onClick = {
-                                // Account switcher later.
-                            }
+                            onClick = onSwitchAccount
                         )
 
                         DropdownMenuItem(
@@ -452,7 +483,7 @@ private fun StudioTopBar(
                             leadingIcon = {
                                 Icon(
                                     imageVector =
-                                        Icons.Default.Logout,
+                                        Icons.AutoMirrored.Filled.Logout,
                                     contentDescription = null
                                 )
                             },
@@ -460,6 +491,191 @@ private fun StudioTopBar(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfilePicture(
+    user: RobloxUser,
+    size: androidx.compose.ui.unit.Dp
+) {
+    if (!user.pictureUrl.isNullOrBlank()) {
+        AsyncImage(
+            model = user.pictureUrl,
+            contentDescription = user.displayName,
+            modifier = Modifier
+                .size(size)
+                .clip(
+                    androidx.compose.foundation.shape.CircleShape
+                ),
+            contentScale = ContentScale.Crop
+        )
+    } else {
+        Icon(
+            imageVector = Icons.Default.AccountCircle,
+            contentDescription = user.displayName,
+            modifier = Modifier.size(size)
+        )
+    }
+}
+
+@Composable
+private fun AccountSwitcherDialog(
+    accounts: List<RobloxUser>,
+    activeAccountId: Long,
+    onDismiss: () -> Unit,
+    onAccountSelected: (Long) -> Unit,
+    onAddAccount: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Switch Account",
+                fontWeight = FontWeight.SemiBold
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                accounts.forEach { account ->
+                    AccountSwitcherItem(
+                        account = account,
+                        selected =
+                            account.id == activeAccountId,
+                        onClick = {
+                            onAccountSelected(account.id)
+                        }
+                    )
+                }
+
+                Spacer(
+                    modifier = Modifier.height(8.dp)
+                )
+
+                HorizontalDivider()
+
+                Spacer(
+                    modifier = Modifier.height(8.dp)
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(
+                            onClick = onAddAccount
+                        )
+                        .padding(
+                            horizontal = 8.dp,
+                            vertical = 12.dp
+                        ),
+                    verticalAlignment =
+                        Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = null
+                    )
+
+                    Spacer(
+                        modifier = Modifier.width(12.dp)
+                    )
+
+                    Text(
+                        text = "Add Account",
+                        style =
+                            MaterialTheme.typography
+                                .bodyLarge
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss
+            ) {
+                Text("Done")
+            }
+        }
+    )
+}
+
+@Composable
+private fun AccountSwitcherItem(
+    account: RobloxUser,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp)
+            .clickable(
+                onClick = onClick
+            ),
+        shape = RoundedCornerShape(8.dp),
+        color =
+            if (selected) {
+                MaterialTheme.colorScheme.secondaryContainer
+            } else {
+                Color.Transparent
+            }
+    ) {
+        Row(
+            modifier = Modifier.padding(
+                horizontal = 10.dp,
+                vertical = 10.dp
+            ),
+            verticalAlignment =
+                Alignment.CenterVertically
+        ) {
+            ProfilePicture(
+                user = account,
+                size = 42.dp
+            )
+
+            Spacer(
+                modifier = Modifier.width(12.dp)
+            )
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = account.displayName,
+                    style =
+                        MaterialTheme.typography
+                            .bodyLarge,
+                    fontWeight =
+                        if (selected) {
+                            FontWeight.SemiBold
+                        } else {
+                            FontWeight.Normal
+                        }
+                )
+
+                Text(
+                    text = "@${account.name}",
+                    style =
+                        MaterialTheme.typography
+                            .bodySmall,
+                    color =
+                        MaterialTheme.colorScheme
+                            .onSurfaceVariant
+                )
+            }
+
+            if (selected) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = "Current account",
+                    tint =
+                        MaterialTheme.colorScheme
+                            .primary
+                )
             }
         }
     }
@@ -643,10 +859,34 @@ private fun ExperiencesPage(
     loadingExperiences: Boolean,
     experienceError: String?,
     onNewExperience: () -> Unit,
-    onExperienceClick: (RobloxExperience) -> Unit
+    onExperienceClick: (RobloxExperience) -> Unit,
 ) {
     var selectedTab by remember {
         mutableStateOf(ExperienceTab.Experiences)
+    }
+
+    var selectedGroupId by remember {
+        mutableStateOf<Long?>(null)
+    }
+
+    val userExperiences = experiences.filter {
+        it.ownerType == "User"
+    }
+
+    val groups =
+        experiences
+            .filter {
+                it.ownerType == "Group"
+            }
+            .distinctBy {
+                it.ownerId
+            }
+            .sortedBy {
+                it.ownerName.lowercase()
+            }
+
+    val groupExperiences = experiences.filter {
+        it.ownerType == "Group" && (selectedGroupId == null || it.ownerId == selectedGroupId )
     }
 
     Column(
@@ -717,21 +957,47 @@ private fun ExperiencesPage(
         when (selectedTab) {
             ExperienceTab.Experiences -> {
                 ExperienceContent(
-                    experiences = experiences,
+                    experiences = userExperiences,
                     loadingExperiences = loadingExperiences,
                     experienceError = experienceError,
                     onExperienceClick = onExperienceClick,
                     showNewCard = true,
-                    onNewExperience = onNewExperience
+                    onNewExperience = onNewExperience,
+                    emptyTitle = "No Experiences",
+                    emptyDescription = "Create your first experience to get started."
                 )
             }
 
             ExperienceTab.GroupExperiences -> {
-                EmptyExperienceTab(
-                    title = "Group Experiences",
-                    description =
-                        "Experiences owned by groups you can edit will appear here."
-                )
+                Column {
+                    GroupSelector(
+                        groups = groups,
+                        selectedGroupId = selectedGroupId,
+                        onGroupSelected = {
+                            selectedGroupId = it
+                        }
+                    )
+
+                    Spacer(
+                        modifier = Modifier.height(16.dp)
+                    )
+
+                    ExperienceContent(
+                        experiences = groupExperiences,
+                        loadingExperiences = loadingExperiences,
+                        experienceError = experienceError,
+                        onExperienceClick = onExperienceClick,
+                        showNewCard = false,
+                        onNewExperience = onNewExperience,
+                        emptyTitle = "No Group Experiences",
+                        emptyDescription =
+                            if (selectedGroupId == null) {
+                                "Experiences owned by groups you can edit will appear here."
+                            } else {
+                                "This group doesn't have any experiences you can edit."
+                            }
+                    )
+                }
             }
 
             ExperienceTab.SharedWithMe -> {
@@ -803,6 +1069,84 @@ private fun ExperienceTabs(
 }
 
 @Composable
+private fun GroupSelector(
+    groups: List<RobloxExperience>,
+    selectedGroupId: Long?,
+    onGroupSelected: (Long?) -> Unit
+) {
+    var expanded by remember {
+        mutableStateOf(false)
+    }
+
+    val selectedGroup =
+        groups.firstOrNull {
+            it.ownerId == selectedGroupId
+        }
+
+    Box {
+        OutlinedButton(
+            onClick = {
+                expanded = true
+            }
+        ) {
+            Text(
+                text =
+                    selectedGroup?.ownerName
+                        ?: "All Groups"
+            )
+
+            Spacer(
+                modifier = Modifier.width(8.dp)
+            )
+
+            Icon(
+                imageVector = Icons.Default.ArrowDropDown,
+                contentDescription = null
+            )
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = {
+                expanded = false
+            }
+        ) {
+            DropdownMenuItem(
+                text = {
+                    Text("All Groups")
+                },
+                onClick = {
+                    onGroupSelected(null)
+                    expanded = false
+                }
+            )
+
+            groups
+                .distinctBy {
+                    it.ownerId
+                }
+                .sortedBy {
+                    it.ownerName.lowercase()
+                }
+                .forEach { group ->
+                    DropdownMenuItem(
+                        text = {
+                            Text(group.ownerName)
+                        },
+                        onClick = {
+                            onGroupSelected(
+                                group.ownerId
+                            )
+
+                            expanded = false
+                        }
+                    )
+                }
+        }
+    }
+}
+
+@Composable
 private fun ExperienceTabButton(
     text: String,
     selected: Boolean,
@@ -844,7 +1188,9 @@ private fun ExperienceContent(
     experienceError: String?,
     onExperienceClick: (RobloxExperience) -> Unit,
     showNewCard: Boolean,
-    onNewExperience: () -> Unit
+    onNewExperience: () -> Unit,
+    emptyTitle: String = "No Experiences",
+    emptyDescription: String = "Create your first experience to get started."
 ) {
     when {
         loadingExperiences -> {
@@ -864,8 +1210,9 @@ private fun ExperienceContent(
         }
 
         experiences.isEmpty() -> {
-            EmptyExperiences(
-                onNewExperience = onNewExperience
+            EmptyExperienceTab(
+                title = emptyTitle,
+                description = emptyDescription
             )
         }
 
@@ -1015,88 +1362,87 @@ private fun ExperienceCard(
 ) {
     Card(
         modifier = Modifier
-            .width(240.dp)
-            .clickable(
-                onClick = onClick
-            ),
+            .width(210.dp)
+            .height(172.dp)
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(
             containerColor =
                 MaterialTheme.colorScheme.surface
         )
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(135.dp)
-                .clip(
-                    RoundedCornerShape(
-                        topStart = 10.dp,
-                        topEnd = 10.dp
-                    )
-                )
-                .background(
-                    MaterialTheme.colorScheme
-                        .surfaceVariant
-                )
+        Column(
+            modifier = Modifier.fillMaxSize()
         ) {
-            if (
-                experience.thumbnailUrl
-                    ?.isNotBlank() == true
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp)
+                    .clip(
+                        RoundedCornerShape(
+                            topStart = 10.dp,
+                            topEnd = 10.dp
+                        )
+                    )
+                    .background(
+                        MaterialTheme.colorScheme.surfaceVariant
+                    )
             ) {
-                AsyncImage(
-                    model = experience.thumbnailUrl,
-                    contentDescription = experience.name,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
+                if (!experience.thumbnailUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = experience.thumbnailUrl,
+                        contentDescription = experience.name,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Text(
+                        text = "No Thumbnail",
+                        modifier = Modifier.align(
+                            Alignment.Center
+                        ),
+                        color =
+                            MaterialTheme.colorScheme
+                                .onSurfaceVariant,
+                        style =
+                            MaterialTheme.typography
+                                .labelMedium
+                    )
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp)
+            ) {
                 Text(
-                    text = "No Thumbnail",
-                    modifier = Modifier.align(
-                        Alignment.Center
-                    ),
+                    text = experience.name,
+                    style =
+                        MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Spacer(
+                    modifier = Modifier.height(4.dp)
+                )
+
+                Text(
+                    text =
+                        experience.description
+                            ?.takeIf { it.isNotBlank() }
+                            ?: "No description",
+                    style =
+                        MaterialTheme.typography.bodySmall,
                     color =
                         MaterialTheme.colorScheme
                             .onSurfaceVariant,
-                    style =
-                        MaterialTheme.typography
-                            .labelMedium
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
-        }
-
-        Column(
-            modifier = Modifier.padding(14.dp)
-        ) {
-            Text(
-                text = experience.name,
-                style =
-                    MaterialTheme.typography
-                        .titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1
-            )
-
-            Spacer(
-                modifier = Modifier.height(4.dp)
-            )
-
-            Text(
-                text =
-                    experience.description
-                        ?.takeIf {
-                            it.isNotBlank()
-                        }
-                        ?: "No description",
-                style =
-                    MaterialTheme.typography
-                        .bodySmall,
-                color =
-                    MaterialTheme.colorScheme
-                        .onSurfaceVariant,
-                maxLines = 2
-            )
         }
     }
 }
@@ -1107,11 +1453,9 @@ private fun NewExperienceCard(
 ) {
     Card(
         modifier = Modifier
-            .width(240.dp)
-            .height(196.dp)
-            .clickable(
-                onClick = onClick
-            ),
+            .width(210.dp)
+            .height(172.dp)
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(10.dp),
         colors = CardDefaults.cardColors(
             containerColor =
@@ -1128,18 +1472,17 @@ private fun NewExperienceCard(
             Icon(
                 imageVector = Icons.Default.Add,
                 contentDescription = null,
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier.size(36.dp)
             )
 
             Spacer(
-                modifier = Modifier.height(10.dp)
+                modifier = Modifier.height(8.dp)
             )
 
             Text(
                 text = "New Experience",
                 style =
-                    MaterialTheme.typography
-                        .titleMedium,
+                    MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold
             )
         }
@@ -1534,7 +1877,7 @@ private fun StudioDropdownMenu(
 
                     "Help" -> {
                         MenuItem(
-                            icon = Icons.Default.HelpOutline,
+                            icon = Icons.AutoMirrored.Filled.HelpOutline,
                             text = "Documentation",
                             onClick = onDismiss
                         )
@@ -1548,7 +1891,7 @@ private fun StudioDropdownMenu(
                         )
 
                         MenuItem(
-                            icon = Icons.Default.HelpOutline,
+                            icon = Icons.AutoMirrored.Filled.HelpOutline,
                             text = "About Stew Studio",
                             onClick = onDismiss
                         )

@@ -6,9 +6,11 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
+import com.stewstudio.app.auth.RobloxAuthManager
 
 class RobloxExperienceClient(
-    private val accountManager: AccountManager
+    private val accountManager: AccountManager,
+    private val authManager: RobloxAuthManager
 ) {
 
     companion object {
@@ -31,11 +33,14 @@ class RobloxExperienceClient(
             return Result.success(emptyList())
         }
 
+        val tokenResult =
+            authManager.getValidAccessToken(account.id)
+
+        if (tokenResult.isFailure) {
+            return Result.failure(tokenResult.exceptionOrNull() ?: IllegalStateException("Not authenticated"))
+        }
         val token =
-            accountManager.getAccessToken(account.id)
-                ?: return Result.failure(
-                    IllegalStateException("Not authenticated")
-                )
+            tokenResult.getOrThrow()
 
         return withContext(Dispatchers.IO) {
             try {
@@ -141,6 +146,15 @@ class RobloxExperienceClient(
                                     null
                                 }
 
+                            val ownerType =
+                                item.optString("ownerType", "")
+
+                            val ownerId =
+                                item.optLong("ownerId", 0L)
+
+                            val ownerName =
+                                item.optString("ownerName", "")
+
                             experiences.add(
                                 RobloxExperience(
                                     id = id,
@@ -148,7 +162,10 @@ class RobloxExperienceClient(
                                     description = description,
                                     rootPlaceId = rootPlaceId,
                                     updated = updated,
-                                    thumbnailUrl = thumbnailUrl
+                                    thumbnailUrl = thumbnailUrl,
+                                    ownerType = ownerType,
+                                    ownerId = ownerId,
+                                    ownerName = ownerName
                                 )
                             )
                         }

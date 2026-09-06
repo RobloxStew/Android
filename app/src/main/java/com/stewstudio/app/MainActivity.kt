@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.lifecycleScope
 import com.stewstudio.app.auth.AccountManager
 import com.stewstudio.app.auth.AndroidAccountStore
 import com.stewstudio.app.auth.AndroidTokenStore
@@ -32,6 +33,7 @@ import com.stewstudio.app.cloud.RobloxExperienceClient
 import com.stewstudio.app.ui.home.HomeScreen
 import com.stewstudio.app.ui.login.LoginScreen
 import com.stewstudio.app.ui.theme.StewTheme
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -60,11 +62,6 @@ class MainActivity : ComponentActivity() {
                 tokenStore = tokenStore
             )
 
-        val experienceClient =
-            RobloxExperienceClient(
-                accountManager
-            )
-
         val networkMonitor =
             NetworkMonitor(
                 applicationContext
@@ -82,6 +79,12 @@ class MainActivity : ComponentActivity() {
                 sessionStore = sessionStore
             )
 
+        val experienceClient =
+            RobloxExperienceClient(
+                accountManager,
+                authManager
+            )
+
         handleOAuthIntent(intent)
 
         setContent {
@@ -89,6 +92,12 @@ class MainActivity : ComponentActivity() {
 
                 val state by
                 authManager.state.collectAsState()
+
+                val accounts by
+                accountManager.accounts.collectAsState()
+
+                val activeAccount by
+                accountManager.activeAccount.collectAsState()
 
                 LaunchedEffect(authManager) {
                     authManager.initialize()
@@ -141,15 +150,36 @@ class MainActivity : ComponentActivity() {
 
                     is AuthState.LoggedIn -> {
                         HomeScreen(
-                            user = current.user,
+                            user = activeAccount ?: current.user,
+                            accounts = accounts,
                             experienceClient = experienceClient,
+
                             onLogout = {
                                 authManager.logout()
+                            },
+
+                            onAddAccount = {
+                                authManager.beginLogin { url ->
+
+                                    val intent =
+                                        Intent(
+                                            Intent.ACTION_VIEW,
+                                            Uri.parse(url)
+                                        )
+
+                                    startActivity(intent)
+                                }
+                            },
+
+                            onSwitchAccount = { accountId ->
+                                lifecycleScope.launch {
+                                    accountManager.setActiveAccount(accountId)
+                                }
                             }
                         )
                     }
+                    }
                 }
-            }
         }
     }
 

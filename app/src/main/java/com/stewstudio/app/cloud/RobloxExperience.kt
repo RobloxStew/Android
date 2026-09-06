@@ -6,5 +6,9 @@ data class RobloxExperience(
     val description: String?,
     val rootPlaceId: Long?,
     val updated: String?,
-    val thumbnailUrl: String? = null
+    val thumbnailUrl: String? = null,
+
+    val ownerType: String,
+    val ownerId: Long,
+    val ownerName: String
 )

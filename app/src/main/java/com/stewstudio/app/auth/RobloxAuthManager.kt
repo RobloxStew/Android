@@ -462,10 +462,13 @@ class RobloxAuthManager(
                             )
 
                         val pictureUrl =
-                            json.optString(
-                                "picture",
+                            if (json.has("picture") && !json.isNull("picture")) {
+                                json.getString(
+                                    "picture"
+                                )
+                            } else {
                                 null
-                            )
+                            }
 
                         Result.success(
                             RobloxUser(
@@ -475,6 +478,155 @@ class RobloxAuthManager(
                                     displayName,
                                 pictureUrl = pictureUrl
                             )
+                        )
+                    }
+
+            } catch (exception: Exception) {
+
+                Result.failure(
+                    exception
+                )
+            }
+        }
+    }
+
+    suspend fun getValidAccessToken(
+        accountId: Long
+    ): Result<String> {
+
+        val accessToken =
+            accountManager.getAccessToken(accountId)
+                ?: return Result.failure(
+                    IllegalStateException(
+                        "Not authenticated"
+                    )
+                )
+
+        val expiresAt =
+            accountManager.getExpiresAt(accountId)
+                ?: 0L
+
+        if (
+            expiresAt > System.currentTimeMillis() + 60_000L
+        ) {
+            return Result.success(accessToken)
+        }
+
+        val refreshToken =
+            accountManager.getRefreshToken(accountId)
+                ?: return Result.failure(
+                    IllegalStateException(
+                        "No refresh token available"
+                    )
+                )
+
+        return refreshAccessToken(
+            accountId = accountId,
+            refreshToken = refreshToken
+        )
+    }
+
+    private suspend fun refreshAccessToken(
+        accountId: Long,
+        refreshToken: String
+    ): Result<String> {
+
+        return withContext(
+            Dispatchers.IO
+        ) {
+
+            try {
+
+                val jsonBody =
+                    JSONObject().apply {
+                        put(
+                            "refreshToken",
+                            refreshToken
+                        )
+                    }
+
+                val body =
+                    jsonBody.toString()
+                        .toRequestBody(
+                            "application/json".toMediaType()
+                        )
+
+                val request =
+                    Request.Builder()
+                        .url(
+                            "https://api.stewstudio.app/oauth/refresh"
+                        )
+                        .post(body)
+                        .header(
+                            "Accept",
+                            "application/json"
+                        )
+                        .header(
+                            "Content-Type",
+                            "application/json"
+                        )
+                        .build()
+
+                httpClient
+                    .newCall(request)
+                    .execute()
+                    .use { response ->
+
+                        val responseBody =
+                            response.body?.string()
+                                ?: ""
+
+                        if (!response.isSuccessful) {
+
+                            return@withContext Result.failure(
+                                IllegalStateException(
+                                    "Token refresh failed: " +
+                                            "${response.code} $responseBody"
+                                )
+                            )
+                        }
+
+                        val json =
+                            JSONObject(
+                                responseBody
+                            )
+
+                        val newAccessToken =
+                            json.getString(
+                                "access_token"
+                            )
+
+                        val newRefreshToken =
+                            if (
+                                json.has("refresh_token") &&
+                                !json.isNull("refresh_token")
+                            ) {
+                                json.getString(
+                                    "refresh_token"
+                                )
+                            } else {
+                                refreshToken
+                            }
+
+                        val expiresIn =
+                            json.optLong(
+                                "expires_in",
+                                900L
+                            )
+
+                        val expiresAt =
+                            System.currentTimeMillis() +
+                                    expiresIn * 1000L
+
+                        accountManager.saveTokens(
+                            accountId = accountId,
+                            accessToken = newAccessToken,
+                            refreshToken = newRefreshToken,
+                            expiresAt = expiresAt
+                        )
+
+                        Result.success(
+                            newAccessToken
                         )
                     }
 
@@ -574,9 +726,18 @@ class RobloxAuthManager(
     }
 
     fun logout() {
+        scope.launch {
+            val account =
+                accountManager.activeAccount.value
+
+            if (account != null) {
+                accountManager.removeAccount(
+                    account.id
+                )
+            }
+        }
 
         accountBeforeOffline = null
-
         _state.value =
             AuthState.LoggedOut
     }

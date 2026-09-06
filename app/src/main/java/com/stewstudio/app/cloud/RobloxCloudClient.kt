@@ -1,6 +1,7 @@
 package com.stewstudio.app.cloud
 
 import com.stewstudio.app.auth.AccountManager
+import com.stewstudio.app.auth.RobloxAuthManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -9,7 +10,8 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
 class RobloxCloudClient(
-    private val accountManager: AccountManager
+    private val accountManager: AccountManager,
+    private val authManager: RobloxAuthManager
 ) {
 
     companion object {
@@ -41,14 +43,14 @@ class RobloxCloudClient(
             )
         }
 
+        val tokenResult =
+            authManager.getValidAccessToken(account.id)
+
+        if (tokenResult.isFailure) {
+            return Result.failure(tokenResult.exceptionOrNull() ?: IllegalStateException("Authentication failed"))
+        }
         val token =
-            accountManager.getAccessToken(
-                account.id
-            ) ?: return Result.failure(
-                IllegalStateException(
-                    "Not authenticated"
-                )
-            )
+            tokenResult.getOrThrow()
 
         return withContext(Dispatchers.IO) {
 

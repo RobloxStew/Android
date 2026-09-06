@@ -35,10 +35,11 @@ class AndroidAccountStore(
                         name = account.getString("name"),
                         displayName = account.getString("displayName"),
                         pictureUrl =
-                                account.optString(
-                                    "pictureUrl",
+                                if (account.has ("pictureUrl") && !account.isNull("pictureUrl")) {
+                                    account.getString("pictureUrl")
+                                } else {
                                     null
-                                )
+                                }
                     )
                 )
             }
@@ -103,12 +104,7 @@ class AndroidAccountStore(
                     put("id", user.id)
                     put("name", user.name)
                     put("displayName", user.displayName)
-
-                    if (user.pictureUrl != null) {
-                        put("pictureUrl", user.pictureUrl)
-                    } else {
-                        put("pictureUrl", JSONObject.NULL)
-                    }
+                    put("pictureUrl", user.pictureUrl ?: JSONObject.NULL)
                 }
             )
         }

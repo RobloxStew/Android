@@ -17,5 +17,5 @@ object OAuthConfig {
         "https://apis.roblox.com/oauth/v1/userinfo"
 
     const val SCOPE =
-        "openid profile legacy-universe:manage"
+        "openid profile universe:read"
 }
