@@ -57,18 +57,14 @@ class RobloxCloudClient(
             try {
 
                 val url =
-                    if (request.path.startsWith("http")) {
-                        request.path
-                    } else {
-                        BASE_URL +
-                                if (
-                                    request.path.startsWith("/")
-                                ) {
-                                    request.path
-                                } else {
-                                    "/${request.path}"
-                                }
-                    }
+                    BASE_URL +
+                            if (
+                                request.path.startsWith("/")
+                            ) {
+                                request.path
+                            } else {
+                                "/${request.path}"
+                            }
 
                 val builder =
                     Request.Builder()

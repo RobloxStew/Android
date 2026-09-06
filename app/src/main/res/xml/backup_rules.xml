@@ -6,8 +6,7 @@
    See https://developer.android.com/about/versions/12/backup-restore
 -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <exclude domain="sharedpref" path="stew_auth.xml"/>
+    <exclude domain="sharedpref" path="stew_accounts.xml"/>
+    <exclude domain="sharedpref" path="stew_oauth.xml"/>
 </full-backup-content>
